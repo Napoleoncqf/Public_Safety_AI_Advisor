@@ -27,3 +27,5 @@ try:
 except requests.exceptions.RequestException as e:
     print(f"请求失败: {e}")
     print("\n请确保Ollama服务正在后台运行。")
+
+// 9月10日，更新一点进度
