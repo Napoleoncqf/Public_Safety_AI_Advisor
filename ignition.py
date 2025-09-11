@@ -37,7 +37,7 @@ def main():
     # --- 步骤B: 与Ollama模型交互 ---
     # !!! 注意: 请将 'qwen2:7b' 替换成你实际下载并运行的模型名称 !!!
     # 你可以在终端输入 `ollama list` 来查看你拥有的模型
-    model_name = 'qwen2:2b' 
+    model_name = 'qwen2:7b' 
     print(f"正在调用模型: {model_name}...")
 
     try:
