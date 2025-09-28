@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>番茄工作法</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .timer-display {
+            font-size: clamp(4rem, 20vw, 10rem);
+            line-height: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl mx-auto text-center">
+        
+        <h1 class="text-4xl md:text-5xl font-bold text-red-500 mb-4">番茄工作法</h1>
+        <p class="text-gray-400 mb-8" id="status-message">协议启动：请设定当前作战任务。</p>
+
+        <!-- 任务输入 -->
+        <div class="mb-8">
+            <input type="text" id="task-input" placeholder="在此输入当前唯一的作战任务..." class="w-full bg-gray-800 border-2 border-gray-700 rounded-lg px-4 py-3 text-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition">
+        </div>
+
+        <!-- 计时器显示 -->
+        <div id="timer" class="timer-display font-mono font-extrabold text-white mb-8">25:00</div>
+        
+        <!-- 新增：搜索引擎 -->
+        <div class="mb-8 max-w-lg mx-auto">
+            <form action="https://www.google.com/search" method="GET" target="_blank" class="flex">
+                <input type="text" name="q" placeholder="搜索..." class="w-full bg-gray-800 border-2 border-gray-700 rounded-l-lg px-4 py-3 text-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition">
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-r-lg text-xl transition">搜索</button>
+            </form>
+        </div>
+
+
+        <!-- 控制按钮 -->
+        <div class="flex justify-center space-x-4 mb-8">
+            <button id="start-pause-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg text-xl transition transform hover:scale-105">启动</button>
+            <button id="reset-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg text-xl transition">重置</button>
+        </div>
+        
+        <!-- 进度追踪 -->
+        <div class="text-gray-400 text-lg">
+            <p>已完成番茄钟：<span id="pomodoro-count" class="font-bold text-white">0</span></p>
+            <p>已完成长休息：<span id="long-break-count" class="font-bold text-white">0</span></p>
+        </div>
+
+        <!-- 执行协议详情 -->
+        <details class="mt-12 text-left bg-gray-800 p-6 rounded-lg">
+            <summary class="text-lg font-semibold text-red-400 cursor-pointer hover:text-red-300">展开/折叠：无情执行协议</summary>
+            <div class="mt-4 text-gray-300 space-y-4">
+                <p><strong class="text-white">第一条：原子性原则。</strong> 一个番茄钟（25分钟）是不可分割的最小工作单元。一旦启动，除非发生火警、地震等紧急情况，否则**绝不允许暂停**。任何内部（“我想查个东西”）或外部（“非紧急的微信”）的打断，都意味着**本次番茄钟作废**，必须重置。</p>
+                <p><strong class="text-white">第二条：单一任务原则。</strong> 在启动一个番茄钟之前，必须在上方输入框内，**明确定义一个具体的、可执行的任务**。在这25分钟内，你只允许做与这个任务**直接相关**的事情。任何偏离都是违规。</p>
+                <p><strong class="text-white">第三条：强制休息原则。</strong> 25分钟计时结束后，**必须**停止工作，进行5分钟的短暂休息。在这5分钟内，你**必须**离开你的“工位”，可以喝水、拉伸、远眺，但**严禁**进行任何高认知负荷的活动（如刷手机、看新闻）。</p>
+                <p><strong class="text-white">第四条：长周期原则。</strong> 每完成**4个**番茄钟（即进度追踪中显示“4”），你必须进行一次**15-30分钟**的“长休息”。这是系统强制的“维护周期”，不容协商。</p>
+                <p><strong class="text-white">第五条：物理化原则（补充协议）。</strong> 强烈建议在你的书桌上放一张纸。每完成一个番茄钟，就在纸上画一个“X”。这个物理动作，能为你的大脑提供一个非数字化的、极其强大的正反馈信号。它在宣告：“我对抗了熵增，并留下了痕跡。”</p>
+            </div>
+        </details>
+    </div>
+
+    <script>
+        const timerDisplay = document.getElementById('timer');
+        const startPauseBtn = document.getElementById('start-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const pomodoroCountDisplay = document.getElementById('pomodoro-count');
+        const longBreakCountDisplay = document.getElementById('long-break-count');
+        const taskInput = document.getElementById('task-input');
+        const statusMessage = document.getElementById('status-message');
+
+        let timer;
+        let timeLeft = 25 * 60;
+        let isRunning = false;
+        let isWorkSession = true;
+        let pomodorosCompleted = 0;
+        let longBreaksCompleted = 0;
+
+        const WORK_TIME = 25 * 60;
+        const SHORT_BREAK_TIME = 5 * 60;
+        const LONG_BREAK_TIME = 15 * 60;
+
+        // 初始化音效合成器
+        const synth = new Tone.Synth().toDestination();
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const displayString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            timerDisplay.textContent = displayString;
+            document.title = `${displayString} - 番茄工作法`;
+        }
+
+        function playSound() {
+             // 播放一个简单的提示音
+            Tone.start();
+            synth.triggerAttackRelease("C4", "0.5");
+            setTimeout(() => synth.triggerAttackRelease("G4", "0.5"), 600);
+        }
+
+        function startTimer() {
+            if (taskInput.value.trim() === '' && isWorkSession) {
+                // 使用自定义的对话框代替 alert
+                showCustomAlert('启动失败：请先定义本次作战任务。');
+                return;
+            }
+            isRunning = true;
+            startPauseBtn.textContent = '暂停';
+            taskInput.disabled = true;
+            statusMessage.textContent = isWorkSession ? `作战中: ${taskInput.value}` : '强制休息中...';
+
+            timer = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+                if (timeLeft <= 0) {
+                    playSound();
+                    clearInterval(timer);
+                    switchSession();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            startPauseBtn.textContent = '继续';
+            clearInterval(timer);
+        }
+
+        function switchSession() {
+            if (isWorkSession) {
+                pomodorosCompleted++;
+                pomodoroCountDisplay.textContent = pomodorosCompleted;
+                isWorkSession = false;
+                
+                if (pomodorosCompleted % 4 === 0) {
+                    timeLeft = LONG_BREAK_TIME;
+                    longBreaksCompleted++;
+                    longBreakCountDisplay.textContent = longBreaksCompleted;
+                    statusMessage.textContent = '任务完成。启动长休息...';
+                } else {
+                    timeLeft = SHORT_BREAK_TIME;
+                    statusMessage.textContent = '任务完成。启动短休息...';
+                }
+            } else {
+                isWorkSession = true;
+                timeLeft = WORK_TIME;
+                statusMessage.textContent = '休息结束。请设定新的作战任务。';
+                taskInput.disabled = false;
+                taskInput.value = '';
+            }
+            isRunning = false;
+            startPauseBtn.textContent = '启动';
+            updateDisplay();
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            isWorkSession = true;
+            timeLeft = WORK_TIME;
+            isRunning = false;
+            startPauseBtn.textContent = '启动';
+            taskInput.disabled = false;
+            statusMessage.textContent = '协议已重置。请设定作战任务。';
+            updateDisplay();
+        }
+
+        // 自定义alert
+        function showCustomAlert(message) {
+            const alertBox = document.createElement('div');
+            alertBox.style.position = 'fixed';
+            alertBox.style.top = '20px';
+            alertBox.style.left = '50%';
+            alertBox.style.transform = 'translateX(-50%)';
+            alertBox.style.padding = '16px 24px';
+            alertBox.style.backgroundColor = '#4A5568'; // gray-700
+            alertBox.style.color = 'white';
+            alertBox.style.borderRadius = '8px';
+            alertBox.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+            alertBox.style.zIndex = '1000';
+            alertBox.textContent = message;
+            document.body.appendChild(alertBox);
+
+            setTimeout(() => {
+                alertBox.style.transition = 'opacity 0.5s';
+                alertBox.style.opacity = '0';
+                setTimeout(() => document.body.removeChild(alertBox), 500);
+            }, 3000);
+        }
+
+
+        startPauseBtn.addEventListener('click', () => {
+            if (isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        });
+
+        resetBtn.addEventListener('click', resetTimer);
+
+        // 初始化显示
+        updateDisplay();
+    </script>
+
+</body>
+</html>
+
